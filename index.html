@@ -4,124 +4,107 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#F4F1E9">
+<meta name="theme-color" content="#F6F3EA">
 <title>日常规划 · 生活工作台</title>
 <meta name="description" content="为第二天排好计划。数据存在你自己的 GitHub 仓库里，换设备也在。">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F4F1E9'/%3E%3Cpath d='M8 22V9h12' stroke='%23A6412B' stroke-width='2' fill='none'/%3E%3Cpath d='M8 16h9' stroke='%23191814' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F6F3EA'/%3E%3Cpath d='M9 24V8h13' stroke='%239C3B26' stroke-width='2' fill='none'/%3E%3Cpath d='M9 15h10' stroke='%231A1813' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
 
-<div class="wrap">
-  <header class="masthead">
+<div class="app">
+  <header class="topbar">
     <div class="brand">
       <span class="brand__mark">日常规划</span>
       <span class="brand__sub">Daily Workbench</span>
     </div>
-    <div class="masthead__right">
+    <div class="topbar__right">
       <button class="status" id="syncBtn" type="button" aria-live="polite">
         <span class="status__dot" aria-hidden="true"></span>
         <span id="syncText">启动中</span>
       </button>
-      <button class="ghost" id="openSettings" type="button">设置</button>
+      <button class="iconbtn" id="openSettings" type="button" aria-label="连接设置">
+        <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"><path d="M2 4.5h12M2 11.5h12"/><circle cx="5.6" cy="4.5" r="1.7" fill="var(--paper)"/><circle cx="10.4" cy="11.5" r="1.7" fill="var(--paper)"/></svg>
+      </button>
     </div>
   </header>
 
   <div class="banner" id="banner" hidden role="alert">
     <span class="banner__text" id="bannerText"></span>
     <span class="banner__act">
-      <button class="btn btn--seal" id="bannerRetry" type="button">重试</button>
-      <button class="btn btn--quiet" id="bannerClose" type="button">关闭</button>
+      <button class="banner__btn" id="bannerRetry" type="button">重试</button>
+      <button class="banner__x" id="bannerClose" type="button" aria-label="关闭">×</button>
     </span>
   </div>
 
-  <main class="layout">
-    <section class="col-main" aria-label="每日计划">
-      <nav class="days" id="days" aria-label="选择日期"></nav>
+  <nav class="strip" id="days" aria-label="选择日期"></nav>
 
-      <div class="dayhead">
-        <div class="dayhead__text">
-          <p class="eyebrow" id="dayEyebrow">明日计划</p>
-          <h1 id="dayTitle">—</h1>
-          <p class="dayhead__sub" id="dayCount"></p>
-        </div>
-        <div class="dayhead__nav">
-          <button class="ghost ghost--icon" id="prevDay" type="button" aria-label="前一天">‹</button>
-          <button class="ghost ghost--icon" id="nextDay" type="button" aria-label="后一天">›</button>
-          <button class="ghost" id="jumpTomorrow" type="button">回到明天</button>
-        </div>
+  <main class="main">
+    <div class="dayhead">
+      <div class="dayhead__left">
+        <span class="dayhead__num" id="dayNum">5</span>
+        <span class="dayhead__text">
+          <span class="eyebrow" id="dayEyebrow">明日计划</span>
+          <span class="dayhead__mon" id="dayMon">11月 · 周四</span>
+        </span>
       </div>
+      <div class="dayhead__right">
+        <span class="dayhead__count" id="dayCount"></span>
+        <span class="arrows">
+          <button class="arrow" id="prevDay" type="button" aria-label="前一天">‹</button>
+          <button class="arrow" id="nextDay" type="button" aria-label="后一天">›</button>
+        </span>
+      </div>
+    </div>
+    <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
 
-      <form class="composer" id="composer" autocomplete="off">
-        <div class="composer__row">
-          <input class="entry" id="entry" type="text" maxlength="140"
-                 placeholder="明天要做什么？写一句话，回车加入" aria-label="新增任务">
-          <button class="btn btn--seal" type="submit">加入</button>
-        </div>
-        <div class="metabar" id="composerMeta"></div>
-      </form>
+    <div class="carry" id="carry" hidden>
+      <span class="carry__text" id="carryText"></span>
+      <button class="carry__btn" id="carryBtn" type="button">顺延过来</button>
+    </div>
 
+    <div class="listwrap">
       <ol class="tasks" id="tasks"></ol>
       <p class="hint" id="listHint" hidden></p>
+    </div>
 
-      <section class="note">
-        <label class="eyebrow" for="noteInput">这一天的记录</label>
-        <textarea id="noteInput" rows="2" maxlength="400"
-                  placeholder="一句话：今天最重要的一点感受，或者写给明天的提醒。"></textarea>
-      </section>
+    <section class="note" id="noteWrap">
+      <button class="note__head" id="noteToggle" type="button" aria-expanded="false">
+        <span class="note__label">一天一句</span>
+        <span class="note__preview" id="notePreview"></span>
+        <span class="note__caret" aria-hidden="true">▾</span>
+      </button>
+      <textarea id="noteInput" rows="2" maxlength="400" placeholder="今天最重要的一点感受，或者写给明天的提醒。"></textarea>
     </section>
-
-    <aside class="col-side" aria-label="概览">
-      <section class="panel">
-        <div class="panel__head">
-          <p class="eyebrow">一周概览</p>
-          <span class="panel__meta" id="weekMeta"></span>
-        </div>
-        <ul class="week" id="week"></ul>
-      </section>
-
-      <section class="panel">
-        <div class="panel__head">
-          <p class="eyebrow" id="carryEyebrow">今日收尾</p>
-          <span class="panel__meta" id="carryMeta"></span>
-        </div>
-        <ul class="carry" id="carry"></ul>
-        <button class="btn btn--wide" id="carryBtn" type="button">把未完成顺延到明天</button>
-      </section>
-
-      <section class="panel panel--quiet">
-        <div class="panel__head">
-          <p class="eyebrow">数据</p>
-          <span class="panel__meta" id="lastSync">—</span>
-        </div>
-        <p class="tiny" id="repoLabel"><i>尚未连接仓库</i></p>
-        <p class="tiny tiny--dim">读写直连 GitHub，换设备、换浏览器都还在。</p>
-      </section>
-    </aside>
   </main>
 
-  <footer class="foot">
-    <span>只是把明天想清楚。</span>
-    <span class="foot__links">
-      <button class="link" id="refreshBtn" type="button">立即同步</button>
-      <button class="link" id="footSettings" type="button">连接设置</button>
-    </span>
-  </footer>
+  <form class="composer" id="composer" autocomplete="off">
+    <div class="composer__row">
+      <input class="entry" id="entry" type="text" maxlength="140" placeholder="明天要做什么？" aria-label="新增任务">
+      <button class="send" type="submit">加入</button>
+    </div>
+    <div class="metabar" id="composerMeta"></div>
+  </form>
 </div>
 
 <dialog class="sheet" id="settings">
-  <form class="sheet__form" id="settingsForm" method="dialog" autocomplete="off">
+  <form class="sheet__form" id="settingsForm" autocomplete="off">
     <div class="sheet__head">
       <div>
         <p class="eyebrow">连接</p>
         <h2>数据仓库</h2>
       </div>
-      <button class="ghost" id="closeSettings" type="button">关闭</button>
+      <button class="sheet__x" id="closeSettings" type="button" aria-label="关闭">×</button>
     </div>
 
-    <p class="tiny tiny--dim sheet__intro">
-      所有记录存在你自己的 GitHub 仓库里，页面的每次读写都直连 <code>api.github.com</code>。
+    <div class="cfgstatus">
+      <p class="cfgstatus__repo" id="repoLabel"><i>尚未连接仓库</i></p>
+      <p class="cfgstatus__sync">上次同步 <b id="lastSync">—</b></p>
+    </div>
+
+    <p class="sheet__intro">
+      所有记录存在你自己的 GitHub 仓库里，页面每次读写都直连 `api.github.com`。
       令牌只保存在这台设备的浏览器中，随请求直发 GitHub，不经过任何第三方。
     </p>
 
@@ -138,7 +121,7 @@
         <span>分支</span>
         <input id="fBranch" type="text" placeholder="main" autocapitalize="off" spellcheck="false">
       </label>
-      <label class="field field--wide">
+      <label class="field">
         <span>数据文件路径</span>
         <input id="fPath" type="text" placeholder="data/workspace.json" autocapitalize="off" spellcheck="false">
       </label>
@@ -148,7 +131,7 @@
       </label>
     </div>
 
-    <p class="tiny tiny--dim" id="cfgNote"></p>
+    <p class="sheet__note" id="cfgNote"></p>
 
     <div class="sheet__foot">
       <button class="btn btn--seal" id="saveCfg" type="submit">保存并连接</button>
@@ -158,10 +141,7 @@
   </form>
 </dialog>
 
-<noscript>
-  <div class="wrap"><p class="banner banner--static">这个页面需要 JavaScript 才能读取与保存你的计划。</p></div>
-</noscript>
-
+<noscript><div class="app"><p class="hint">这个页面需要 JavaScript 才能读取与保存你的计划。</p></div></noscript>
 <script src="./app.js"></script>
 </body>
 </html>
