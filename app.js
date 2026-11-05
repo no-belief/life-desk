@@ -150,6 +150,7 @@
     draft: { p: 2, dur: 0, cat: '' },
     editing: null,
     editDraft: { p: 2, dur: 0, cat: '' },
+    noteOpen: false,
     saving: false,
     dirty: false,
     pendingLocal: false,
@@ -164,10 +165,11 @@
 
   /* ---------------- DOM ---------------- */
   var el = {};
-  ['syncBtn', 'syncText', 'banner', 'bannerText', 'bannerRetry', 'bannerClose', 'openSettings', 'footSettings',
-    'days', 'dayEyebrow', 'dayTitle', 'dayCount', 'prevDay', 'nextDay', 'jumpTomorrow', 'composer', 'entry',
-    'composerMeta', 'tasks', 'listHint', 'noteInput', 'week', 'weekMeta', 'carry', 'carryMeta', 'carryBtn',
-    'carryEyebrow', 'lastSync', 'repoLabel', 'refreshBtn', 'settings', 'settingsForm', 'closeSettings',
+  ['syncBtn', 'syncText', 'banner', 'bannerText', 'bannerRetry', 'bannerClose', 'openSettings',
+    'days', 'dayNum', 'dayEyebrow', 'dayMon', 'dayCount', 'progressBar', 'prevDay', 'nextDay',
+    'carry', 'carryText', 'carryBtn', 'composer', 'entry', 'composerMeta', 'tasks', 'listHint',
+    'noteWrap', 'noteToggle', 'notePreview', 'noteInput',
+    'settings', 'settingsForm', 'closeSettings', 'repoLabel', 'lastSync',
     'fOwner', 'fRepo', 'fBranch', 'fPath', 'fToken', 'cfgNote', 'saveCfg', 'syncNow', 'clearLocal'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
@@ -443,7 +445,6 @@
   function renderAll() {
     renderDays();
     renderDay();
-    renderWeek();
     renderCarry();
     renderRepoLabel();
     renderStatusLine();
@@ -451,21 +452,28 @@
 
   function renderDays() {
     var base = todayKey();
-    var html = '';
     var sel = state.sel || shiftDays(base, 1);
-    for (var i = -1; i < 15; i++) {
-      var k = shiftDays(base, i);
-      var d = parseKey(k);
-      var list = tasksOf(state.data, k);
-      var open = list.filter(function (t) { return !t.done; }).length;
-      var w = '日一二三四五六'[d.getDay()];
-      var label = i === 0 ? '今天' : i === 1 ? '明天' : '周' + w;
-      html += '<button type="button" class="day" data-day="' + k + '" aria-current="' + (k === sel ? 'date' : 'false') + '">' +
-        '<span class="day__w">' + esc(label) + '</span>' +
-        '<span class="day__n">' + (d.getMonth() + 1) + '/' + d.getDate() + '</span>' +
-        '<span class="day__c">' + (open ? open + ' 项' : '') + '</span>' +
-        '</button>';
+    var today = base, tomorrow = shiftDays(base, 1);
+    var keys = [], maxOpen = 1, i, kk, o;
+    for (i = -1; i < 14; i++) {
+      kk = shiftDays(base, i);
+      keys.push(kk);
+      o = tasksOf(state.data, kk).filter(function (t) { return !t.done; }).length;
+      if (o > maxOpen) maxOpen = o;
     }
+    var html = '';
+    keys.forEach(function (k) {
+      var d = parseKey(k);
+      var open = tasksOf(state.data, k).filter(function (t) { return !t.done; }).length;
+      var label = k === today ? '今' : k === tomorrow ? '明' : '日一二三四五六'[d.getDay()];
+      var pct = open ? Math.max(24, Math.round(open / maxOpen * 100)) : 0;
+      html += '<button type="button" class="day' + (k === today ? ' is-today' : '') + '" data-day="' + k +
+        '" aria-current="' + (k === sel ? 'date' : 'false') + '">' +
+        '<span class="day__w">' + label + '</span>' +
+        '<span class="day__n">' + d.getDate() + '</span>' +
+        '<span class="day__bar"><i style="width:' + pct + '%"></i></span>' +
+        '</button>';
+    });
     el.days.innerHTML = html;
     var selBtn = el.days.querySelector('[aria-current="date"]');
     if (selBtn) {
@@ -482,14 +490,16 @@
     var t = todayKey();
     var eyebrow = k === t ? '今天' : k === shiftDays(t, 1) ? '明日计划' : '计划';
     el.dayEyebrow.textContent = eyebrow;
-    el.dayTitle.textContent = (d.getMonth() + 1) + '月' + d.getDate() + '日 · 周' + '日一二三四五六'[d.getDay()];
+    el.dayNum.textContent = d.getDate();
+    el.dayMon.textContent = (d.getMonth() + 1) + '月 · 周' + '日一二三四五六'[d.getDay()];
 
     var list = sortTasks(tasksOf(state.data, k));
     var done = list.filter(function (x) { return x.done; }).length;
     var mins = list.reduce(function (s, x) { return s + (x.dur || 0); }, 0);
     el.dayCount.textContent = list.length
-      ? (done + ' / ' + list.length + ' 已完成' + (mins ? ' · 约 ' + fmtDur(mins) : ''))
+      ? (done + '/' + list.length + (mins ? ' · ' + fmtDur(mins) : ''))
       : '';
+    el.progressBar.style.width = list.length ? (done / list.length * 100) + '%' : '0%';
 
     var html = '';
     for (var i = 0; i < list.length; i++) {
@@ -537,6 +547,10 @@
     var keepFocus = document.activeElement === el.noteInput && state.noteDay === k;
     if (!keepFocus) el.noteInput.value = noteText;
     state.noteDay = k;
+    el.notePreview.textContent = noteText.replace(/\s+/g, ' ').trim();
+    if (state.noteOpen) el.noteWrap.classList.add('is-open');
+    else el.noteWrap.classList.remove('is-open');
+    el.noteToggle.setAttribute('aria-expanded', state.noteOpen ? 'true' : 'false');
   }
 
   function fmtDur(m) {
@@ -560,51 +574,26 @@
       '<select class="cat" data-act="dur" aria-label="预计时长">' + dOpts + '</select>';
   }
 
-  function renderWeek() {
-    var base = todayKey();
-    var html = '', total = 0, open = 0;
-    for (var i = 0; i < 7; i++) {
-      var k = shiftDays(base, i);
-      var d = parseKey(k);
-      var list = tasksOf(state.data, k);
-      var o = list.filter(function (t) { return !t.done; }).length;
-      total += list.length; open += o;
-      var pct = Math.min(100, o * 20);
-      html += '<li data-day="' + k + '">' +
-        '<span class="week__d">' + (d.getMonth() + 1) + '/' + d.getDate() + ' 周' + '日一二三四五六'[d.getDay()] + '</span>' +
-        '<span class="week__bar"><i style="width:' + pct + '%"></i></span>' +
-        '<span class="week__n">' + (o ? o : '·') + '</span></li>';
-    }
-    el.week.innerHTML = html;
-    el.weekMeta.textContent = total ? (open + ' 项待办 / 共 ' + total + ' 项') : '未来 7 天还空着';
-  }
-
+  // 顺延提示只在前一天确有未完成时出现，占用固定的一行高度
   function renderCarry() {
     var from = shiftDays(state.sel, -1);
-    var to = state.sel;
-    var fd = parseKey(from), td = parseKey(to);
-    el.carryEyebrow.textContent = from === todayKey() ? '今日收尾' : (fd.getMonth() + 1) + '/' + fd.getDate() + ' 收尾';
     var pending = tasksOf(state.data, from).filter(function (t) { return !t.done; });
-    var html = '';
     if (!pending.length) {
-      var all = tasksOf(state.data, from).length;
-      html = '<li class="carry__empty">' + (all ? '上一天都完成了。' : '上一天没有安排。') + '</li>';
-    } else {
-      pending.slice(0, 5).forEach(function (t) {
-        html += '<li><span class="carry__dot"></span><span class="carry__t" title="' + esc(t.text) + '">' + esc(t.text) + '</span></li>';
-      });
-      if (pending.length > 5) html += '<li class="carry__empty">还有 ' + (pending.length - 5) + ' 项…</li>';
+      el.carry.hidden = true;
+      el.carryBtn.disabled = true;
+      return;
     }
-    el.carry.innerHTML = html;
-    el.carryMeta.textContent = pending.length ? pending.length + ' 项待顺延' : '';
-    el.carryBtn.disabled = pending.length === 0;
-    el.carryBtn.style.opacity = pending.length ? '1' : '.45';
-    el.carryBtn.textContent = '顺延 ' + (fd.getMonth() + 1) + '/' + fd.getDate() + ' 的未完成 → ' + (td.getMonth() + 1) + '/' + td.getDate();
+    el.carry.hidden = false;
+    el.carryBtn.disabled = false;
+    var preview = pending.slice(0, 2).map(function (t) { return t.text; }).join('、');
+    el.carryText.textContent = (from === todayKey() ? '今天' : '上一天') + '有 ' + pending.length +
+      ' 项没做完：' + preview + (pending.length > 2 ? ' 等' : '');
+    el.carryBtn.textContent = '顺延过来';
   }
 
   function renderRepoLabel() {
     if (!cfgReady()) {
-      el.repoLabel.textContent = '尚未连接仓库';
+      el.repoLabel.innerHTML = '<i>尚未连接仓库</i>';
       el.lastSync.textContent = '—';
       return;
     }
@@ -754,16 +743,16 @@
     state.sel = b.getAttribute('data-day');
     renderDays(); renderDay(); renderCarry();
   });
-  el.week.addEventListener('click', function (ev) {
-    var li = ev.target.closest('[data-day]');
-    if (!li) return;
-    state.editing = null;
-    state.sel = li.getAttribute('data-day');
-    renderDays(); renderDay(); renderCarry();
-  });
   el.prevDay.addEventListener('click', function () { state.editing = null; state.sel = shiftDays(state.sel, -1); renderDays(); renderDay(); renderCarry(); });
   el.nextDay.addEventListener('click', function () { state.editing = null; state.sel = shiftDays(state.sel, 1); renderDays(); renderDay(); renderCarry(); });
-  el.jumpTomorrow.addEventListener('click', function () { state.editing = null; state.sel = shiftDays(todayKey(), 1); renderDays(); renderDay(); renderCarry(); });
+
+  // 一天一句：默认收起，点开才展开
+    el.noteToggle.addEventListener('click', function () {
+      state.noteOpen = !state.noteOpen;
+      el.noteWrap.classList.toggle('is-open', state.noteOpen);
+      el.noteToggle.setAttribute('aria-expanded', state.noteOpen ? 'true' : 'false');
+      if (state.noteOpen) el.noteInput.focus();
+    });
 
   var noteTimer = null;
   el.noteInput.addEventListener('input', function () {
@@ -772,8 +761,9 @@
       var day = ensureDay(data, state.sel);
       day.note = { text: v.slice(0, 400), at: Date.now() };
     }, { render: false });
+    el.notePreview.textContent = v.replace(/\s+/g, ' ').trim();
     if (noteTimer) clearTimeout(noteTimer);
-    noteTimer = setTimeout(function () { renderWeek(); }, 400);
+    noteTimer = setTimeout(function () { saveCache(); }, 400);
   });
 
   el.carryBtn.addEventListener('click', function () {
@@ -816,7 +806,6 @@
     else el.settings.removeAttribute('open');
   }
   el.openSettings.addEventListener('click', openSettings);
-  el.footSettings.addEventListener('click', openSettings);
   el.closeSettings.addEventListener('click', function (ev) { ev.preventDefault(); closeSettings(); });
 
   el.settingsForm.addEventListener('submit', function (ev) {
@@ -844,7 +833,6 @@
     });
   });
   el.syncNow.addEventListener('click', function () { retryPull(); });
-  el.refreshBtn.addEventListener('click', function () { retryPull(); });
   el.syncBtn.addEventListener('click', function () {
     if (banner.onAction) { banner.onAction(); return; }
     retryPull();
